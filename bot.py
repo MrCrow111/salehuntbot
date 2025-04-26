@@ -132,16 +132,18 @@ async def fetch_and_post_deals():
 
 # === Старт бота и сервера ===
 def start_bot():
-    print("🔵 Старт основного потока бота (asyncio.run(main))")
-    asyncio.run(fetch_and_post_deals())
+    print("🔵 Старт нового event loop для бота")
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(fetch_and_post_deals())
 
 if __name__ == "__main__":
     print("🚀 Бот запускается...")
-    
+
     # Стартуем Flask-сервер
     flask_thread = Thread(target=run_flask)
     flask_thread.start()
-    
-    # Стартуем бота
+
+    # Стартуем бота в отдельном потоке с правильным event loop
     bot_thread = Thread(target=start_bot)
     bot_thread.start()

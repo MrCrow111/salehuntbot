@@ -9,12 +9,10 @@ from threading import Thread
 BOT_TOKEN = "7758500745:AAGF3Vr0GLbQgk_XudSHGxZVbC33Spwtm3o"
 CHANNEL_ID = -1002650552114
 
-# === Новый список проверенных RSS-фидов ===
 RSS_FEEDS = [
     "https://9to5toys.com/feed/",
     "https://www.theverge.com/rss/index.xml",
     "https://www.engadget.com/rss.xml",
-    "https://www.gizmodo.com.au/rss",
     "https://www.wired.com/feed/rss",
     "https://www.cnet.com/rss/news/",
     "https://www.techbargains.com/rss.xml",
@@ -23,6 +21,7 @@ RSS_FEEDS = [
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
+message_queue = asyncio.Queue()
 LOG_FILE = "bot_log.txt"
 
 # === Мини-сервер Flask ===
@@ -44,13 +43,39 @@ def log_message(message: str):
     except Exception as e:
         print(f"❌ Ошибка записи в лог: {e}")
 
-# === Основная логика проверки скидок ===
+# === Асинхронная отправка сообщений из очереди ===
+async def message_sender():
+    while True:
+        message_data = await message_queue.get()
+        try:
+            if message_data['type'] == 'text':
+                await bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=message_data['text'],
+                    reply_markup=message_data['markup'],
+                    parse_mode='Markdown',
+                    disable_web_page_preview=False
+                )
+            elif message_data['type'] == 'photo':
+                await bot.send_photo(
+                    chat_id=CHANNEL_ID,
+                    photo=message_data['photo'],
+                    caption=message_data['caption'],
+                    reply_markup=message_data['markup'],
+                    parse_mode='Markdown'
+                )
+            log_message(f"✅ Отправлено сообщение: {message_data.get('text', message_data.get('caption', 'Без текста'))}")
+        except Exception as e:
+            log_message(f"❌ Ошибка отправки сообщения из очереди: {e}")
+        await asyncio.sleep(60)  # Пауза 1 минута между отправками
+
+# === Проверка скидок и добавление их в очередь ===
 async def fetch_and_post_deals():
     print("🔵 Старт функции fetch_and_post_deals()")
 
     try:
-        await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и сразу публикует скидки!")
-        log_message("✅ Бот стартовал и сразу публикует скидки.")
+        await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и публикует скидки через очередь!")
+        log_message("✅ Бот стартовал и сразу публикует скидки через очередь.")
     except Exception as e:
         log_message(f"❌ Ошибка при отправке стартового сообщения: {e}")
         print(f"❌ Ошибка при отправке стартового сообщения: {e}")
@@ -88,42 +113,33 @@ async def fetch_and_post_deals():
                         button = InlineKeyboardButton("👉 Посмотреть", url=link)
                         markup = InlineKeyboardMarkup([[button]])
 
-                        try:
-                            if image_url:
-                                await bot.send_photo(
-                                    chat_id=CHANNEL_ID,
-                                    photo=image_url,
-                                    caption=message_text,
-                                    reply_markup=markup,
-                                    parse_mode='Markdown'
-                                )
-                            else:
-                                await bot.send_message(
-                                    chat_id=CHANNEL_ID,
-                                    text=message_text,
-                                    reply_markup=markup,
-                                    parse_mode='Markdown',
-                                    disable_web_page_preview=False
-                                )
+                        if image_url:
+                            await message_queue.put({
+                                'type': 'photo',
+                                'photo': image_url,
+                                'caption': message_text,
+                                'markup': markup
+                            })
+                        else:
+                            await message_queue.put({
+                                'type': 'text',
+                                'text': message_text,
+                                'markup': markup
+                            })
 
-                            log_message(f"✅ Опубликована скидка: {title}")
-
-                            # Пауза 1 минута между отправками
-                            print("⏳ Пауза 60 секунд перед следующей отправкой...")
-                            await asyncio.sleep(60)
-
-                        except Exception as send_error:
-                            log_message(f"❌ Ошибка отправки сообщения: {send_error}")
+                        print(f"📝 Добавлено в очередь: {title}")
 
             except Exception as feed_error:
                 log_message(f"❌ Ошибка загрузки фида: {feed_url} — {feed_error}")
 
-        print("🟢 Проверка всех фидов завершена. Следующая через 1 минуту...")
+        print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")
         await asyncio.sleep(60)
 
 # === Асинхронный запуск бота ===
 async def main():
-    await fetch_and_post_deals()
+    task1 = asyncio.create_task(fetch_and_post_deals())
+    task2 = asyncio.create_task(message_sender())
+    await asyncio.gather(task1, task2)
 
 def start_asyncio_loop():
     asyncio.run(main())

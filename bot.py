@@ -18,6 +18,9 @@ RSS_FEEDS = [
     "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=latest&forumid[]=9",
 ]
 
+# Запасная картинка SaleHunt
+DEFAULT_IMAGE = "https://sdmntpritalynorth.oaiusercontent.com/files/00000000-1880-6246-a358-63d72dce9191/raw?se=2025-04-26T20%3A30%3A46Z&sp=r&sv=2024-08-04&sr=b&scid=0216e62e-be76-57bc-8714-2cf7c2291b14&skoid=cbbaa726-4a2e-4147-932c-56e6e553f073&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-04-26T16%3A47%3A43Z&ske=2025-04-27T16%3A47%3A43Z&sks=b&skv=2024-08-04&sig=RIAq69ozifY67Y%2BnMzjFebXmetR//lHWZ1pBsuCFzXg%3D"
+
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
 
@@ -31,28 +34,37 @@ def home():
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-# === Функция отправки сообщений ===
-def send_message(text, url=None, image=None):
+# === Функция отправки красивого сообщения ===
+def send_message(title, url, image_url=None):
     try:
-        if url:
-            button = InlineKeyboardButton("👉 Перейти", url=url)
-            markup = InlineKeyboardMarkup([[button]])
-        else:
-            markup = None
+        if not image_url:
+            image_url = DEFAULT_IMAGE
 
-        if image:
-            bot.send_photo(chat_id=CHANNEL_ID, photo=image, caption=text, reply_markup=markup)
-        else:
-            bot.send_message(chat_id=CHANNEL_ID, text=text, reply_markup=markup, parse_mode='Markdown', disable_web_page_preview=False)
+        button = InlineKeyboardButton("👉 Перейти к скидке", url=url)
+        markup = InlineKeyboardMarkup([[button]])
 
-        print(f"✅ Отправлено: {text}")
+        caption = (
+            f"🔥 **НОВАЯ СКИДКА!**\n\n"
+            f"🛍️ *{title}*\n\n"
+            f"📎 Нажми кнопку ниже, чтобы узнать подробности!"
+        )
+
+        bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=image_url,
+            caption=caption,
+            reply_markup=markup,
+            parse_mode='Markdown'
+        )
+
+        print(f"✅ Опубликовано: {title}")
     except Exception as e:
-        print(f"❌ Ошибка отправки: {e}")
+        print(f"❌ Ошибка отправки сообщения: {e}")
 
 # === Основная логика проверки скидок ===
 def fetch_and_post_deals():
     try:
-        bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и работает!", parse_mode='Markdown')
+        bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot запущен и начинает публикацию лучших скидок!", parse_mode='Markdown')
         print("✅ Стартовое сообщение отправлено.")
     except Exception as e:
         print(f"❌ Ошибка отправки стартового сообщения: {e}")
@@ -71,7 +83,7 @@ def fetch_and_post_deals():
                 for entry in feed.entries:
                     link = entry.link
                     title = entry.title
-                    image_url = ""
+                    image_url = None
 
                     if 'media_content' in entry:
                         media = entry.media_content
@@ -83,9 +95,7 @@ def fetch_and_post_deals():
                     if link not in posted_links:
                         posted_links.add(link)
 
-                        message_text = f"🔥 {title}"
-
-                        send_message(text=message_text, url=link, image=image_url)
+                        send_message(title=title, url=link, image_url=image_url)
 
                         time.sleep(60)  # Пауза 1 минута между отправками
 

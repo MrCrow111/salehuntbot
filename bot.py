@@ -108,6 +108,10 @@ async def fetch_and_post_deals():
 
                             log_message(f"✅ Опубликована скидка: {title}")
 
+                            # Пауза 1 минута между отправками
+                            print("⏳ Пауза 60 секунд перед следующей отправкой...")
+                            await asyncio.sleep(60)
+
                         except Exception as send_error:
                             log_message(f"❌ Ошибка отправки сообщения: {send_error}")
 

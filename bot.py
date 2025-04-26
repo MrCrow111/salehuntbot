@@ -8,7 +8,7 @@ from threading import Thread
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "7758500745:AAGF3Vr0GLbQgk_XudSHGxZVbC33Spwtm3o"
 CHANNEL_ID = -1002650552114
-ADMIN_ID = 7039411923  # <-- твой Telegram ID для уведомлений об ошибках
+ADMIN_ID = 7039411923  # твой Telegram ID для уведомлений
 
 RSS_FEEDS = [
     "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity&filter=Amazon",
@@ -26,8 +26,8 @@ RSS_FEEDS = [
     "https://www.aliexpress.com/rss/new-arrivals.xml",
 ]
 
-# Ключевые слова для фильтрации (если пусто, постит всё)
-KEYWORDS = ["amazon", "iphone", "laptop", "gaming", "aliexpress", "playstation", "ssd", "sneakers", "watch"]
+# ⚡ Фильтрация отключена — постится всё
+KEYWORDS = []  
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
@@ -38,7 +38,7 @@ def log_message(message: str):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
-# === Отправка уведомления админу ===
+# === Отправка уведомлений админу ===
 async def notify_admin(error_text: str):
     try:
         await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка у бота:\n\n{error_text}")
@@ -71,13 +71,6 @@ async def fetch_and_post_deals():
     first_run = True
 
     while True:
-        current_hour = datetime.now().hour
-        # Умное расписание: ночью реже проверки
-        if 1 <= current_hour <= 7:
-            sleep_time = 10 * 60  # Ночью спим 10 минут
-        else:
-            sleep_time = 3 * 60   # Днём проверяем каждые 3 минуты
-
         for feed_url in RSS_FEEDS:
             try:
                 feed = feedparser.parse(feed_url)
@@ -88,10 +81,8 @@ async def fetch_and_post_deals():
                 for entry in feed.entries:
                     link = entry.link
                     title = entry.title
-                    summary = getattr(entry, 'summary', '')
                     image_url = ""
 
-                    # Пробуем вытащить картинку
                     if 'media_content' in entry:
                         media = entry.media_content
                         if isinstance(media, list) and media:
@@ -104,17 +95,14 @@ async def fetch_and_post_deals():
                         continue
 
                     if link not in posted_links:
-                        # Фильтрация по ключевым словам
+                        # Если KEYWORDS пустой — постим всё
                         if KEYWORDS:
                             if not any(keyword.lower() in title.lower() for keyword in KEYWORDS):
                                 continue
 
                         posted_links.add(link)
 
-                        # Сообщение
                         message_text = f"🔥 {title}"
-
-                        # Кнопка "Перейти на сайт"
                         button = InlineKeyboardButton("👉 Перейти на сайт", url=link)
                         markup = InlineKeyboardMarkup([[button]])
 
@@ -142,13 +130,14 @@ async def fetch_and_post_deals():
                         except Exception as send_error:
                             await notify_admin(str(send_error))
                             log_message(f"❌ Ошибка отправки сообщения: {send_error}")
+
             except Exception as feed_error:
                 await notify_admin(str(feed_error))
                 log_message(f"❌ Ошибка загрузки фида: {feed_error}")
 
         first_run = False
-        log_message(f"🔄 Проверка фидов завершена. Сплю {sleep_time // 60} минут...")
-        await asyncio.sleep(sleep_time)
+        log_message(f"🔄 Проверка фидов завершена. Сплю 1 минуту...")
+        await asyncio.sleep(60)  # Спим 1 минуту после каждой проверки
 
 # === Автоматический перезапуск при ошибках ===
 async def main():

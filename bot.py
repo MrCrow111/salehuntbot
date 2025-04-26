@@ -31,19 +31,13 @@ KEYWORDS = []
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
-LOG_FILE = "bot_log.txt"
-
-# === Логирование ===
-def log_message(message: str):
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
 # === Уведомление админу об ошибках ===
 async def notify_admin(error_text: str):
     try:
         await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка у бота:\n\n{error_text}")
     except Exception as notify_error:
-        log_message(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
+        print(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
 
 # === Flask-сервер для Render ===
 app = Flask('')
@@ -57,21 +51,24 @@ def run_flask():
 
 # === Основная логика бота ===
 async def fetch_and_post_deals():
+    print("🔵 Старт функции fetch_and_post_deals()")
     try:
         await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
-        log_message("✅ Бот стартовал и отправил тестовое сообщение.")
+        print("✅ Тестовое сообщение успешно отправлено в канал.")
     except Exception as test_error:
+        print(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
         await notify_admin(str(test_error))
-        log_message(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
 
     first_run = True
 
     while True:
+        print("🔄 Началась новая проверка скидок...")
         for feed_url in RSS_FEEDS:
             try:
+                print(f"📥 Проверяю фид: {feed_url}")
                 feed = feedparser.parse(feed_url)
                 if not feed.entries:
-                    log_message(f"ℹ️ Фид пустой: {feed_url}")
+                    print(f"⚠️ Фид пустой: {feed_url}")
                     continue
 
                 for entry in feed.entries:
@@ -79,7 +76,7 @@ async def fetch_and_post_deals():
                     title = entry.title
                     image_url = ""
 
-                    # Попытка достать картинку
+                    # Достаём картинку если есть
                     if 'media_content' in entry:
                         media = entry.media_content
                         if isinstance(media, list) and media:
@@ -92,7 +89,6 @@ async def fetch_and_post_deals():
                         continue
 
                     if link not in posted_links:
-                        # Если фильтрация включена
                         if KEYWORDS:
                             if not any(keyword.lower() in title.lower() for keyword in KEYWORDS):
                                 continue
@@ -120,27 +116,27 @@ async def fetch_and_post_deals():
                                     parse_mode='Markdown',
                                     disable_web_page_preview=False
                                 )
-                            print(f"✅ Опубликовано: {title}")
-                            log_message(f"✅ Опубликовано: {title}")
+
+                            print(f"✅ Опубликована скидка: {title}")
 
                         except Exception as send_error:
+                            print(f"❌ Ошибка отправки сообщения: {send_error}")
                             await notify_admin(str(send_error))
-                            log_message(f"❌ Ошибка отправки сообщения: {send_error}")
             except Exception as feed_error:
+                print(f"❌ Ошибка загрузки фида {feed_url}: {feed_error}")
                 await notify_admin(str(feed_error))
-                log_message(f"❌ Ошибка загрузки фида: {feed_error}")
 
         first_run = False
-        log_message("🔄 Проверка фидов завершена. Сплю 1 минуту...")
+        print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")
         await asyncio.sleep(60)
 
 # === Старт бота и сервера ===
 def start_bot():
+    print("🔵 Старт основного потока бота (asyncio.run(main))")
     asyncio.run(fetch_and_post_deals())
 
 if __name__ == "__main__":
-    print("🚀 Бот запущен и следит за скидками!")
-    log_message("🚀 Бот запущен.")
+    print("🚀 Бот запускается...")
     
     # Стартуем Flask-сервер
     flask_thread = Thread(target=run_flask)

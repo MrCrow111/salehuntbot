@@ -97,7 +97,7 @@ def fetch_and_post_deals():
 
                         send_message(title=title, url=link, image_url=image_url)
 
-                        time.sleep(60)  # Pause 1 minute between posts
+                        time.sleep(300)  # ⏳ Pause 5 minutes between posts
 
             except Exception as feed_error:
                 print(f"❌ Error processing feed {feed_url}: {feed_error}")

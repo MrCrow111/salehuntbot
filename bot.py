@@ -8,7 +8,7 @@ from threading import Thread
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "7758500745:AAGF3Vr0GLbQgk_XudSHGxZVbC33Spwtm3o"
 CHANNEL_ID = -1002650552114
-ADMIN_ID = 7039411923  # твой Telegram ID для уведомлений
+ADMIN_ID = 7039411923
 
 RSS_FEEDS = [
     "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity&filter=Amazon",
@@ -26,18 +26,10 @@ RSS_FEEDS = [
     "https://www.aliexpress.com/rss/new-arrivals.xml",
 ]
 
-# Фильтрация отключена — постится всё
-KEYWORDS = []
+KEYWORDS = []  # Фильтрация отключена
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
-
-# === Уведомление админу об ошибках ===
-async def notify_admin(error_text: str):
-    try:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка у бота:\n\n{error_text}")
-    except Exception as notify_error:
-        print(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
 
 # === Flask-сервер для Render ===
 app = Flask('')
@@ -57,7 +49,10 @@ async def fetch_and_post_deals():
         print("✅ Тестовое сообщение успешно отправлено в канал.")
     except Exception as test_error:
         print(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
-        await notify_admin(str(test_error))
+        try:
+            await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка старта:\n\n{test_error}")
+        except Exception as notify_error:
+            print(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
 
     first_run = True
 
@@ -121,10 +116,17 @@ async def fetch_and_post_deals():
 
                         except Exception as send_error:
                             print(f"❌ Ошибка отправки сообщения: {send_error}")
-                            await notify_admin(str(send_error))
+                            try:
+                                await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка отправки сообщения:\n\n{send_error}")
+                            except Exception as notify_error:
+                                print(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
+
             except Exception as feed_error:
                 print(f"❌ Ошибка загрузки фида {feed_url}: {feed_error}")
-                await notify_admin(str(feed_error))
+                try:
+                    await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка загрузки фида:\n\n{feed_error}")
+                except Exception as notify_error:
+                    print(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
 
         first_run = False
         print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")

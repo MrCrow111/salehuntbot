@@ -31,7 +31,7 @@ LOG_FILE = "bot_log.txt"
 
 # === Логирование ===
 def log_message(message: str):
-    print(message)  # Теперь всё видно сразу в Render Logs
+    print(message)  # Всё видно в Render Logs
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
@@ -132,9 +132,7 @@ async def fetch_and_post_deals():
 
 # === Асинхронный запуск бота ===
 async def main():
-    asyncio.create_task(fetch_and_post_deals())
-    while True:
-        await asyncio.sleep(3600)  # Держим event loop в живом состоянии
+    await fetch_and_post_deals()
 
 def start_asyncio_loop():
     asyncio.run(main())

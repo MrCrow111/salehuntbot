@@ -23,7 +23,7 @@ RSS_FEEDS = [
     "https://www.bountii.com/rss",
 ]
 
-KEYWORDS = []
+KEYWORDS = []  # Фильтрация отключена
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
@@ -47,16 +47,6 @@ def home():
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-# === Тест подключения к Telegram API ===
-async def check_telegram_connection():
-    print("🔍 Проверка подключения к Telegram API...")
-    try:
-        me = await bot.get_me()
-        print(f"✅ Бот подключен к Telegram как: @{me.username}")
-    except Exception as e:
-        print(f"❌ Ошибка подключения к Telegram API: {e}")
-
-# === Основная логика ===
 async def fetch_and_post_deals():
     print("🔵 Старт функции fetch_and_post_deals()")
 
@@ -66,7 +56,6 @@ async def fetch_and_post_deals():
     except Exception as e:
         log_message(f"❌ Ошибка при отправке стартового сообщения: {e}")
         print(f"❌ Ошибка при отправке стартового сообщения: {e}")
-        return  # если ошибка — дальше не продолжаем
 
     first_run = True
 
@@ -143,7 +132,6 @@ async def fetch_and_post_deals():
 
 # === Асинхронный запуск бота ===
 async def main():
-    await check_telegram_connection()
     await fetch_and_post_deals()
 
 def start_asyncio_loop():

@@ -11,19 +11,16 @@ CHANNEL_ID = -1002650552114
 ADMIN_ID = 7039411923
 
 RSS_FEEDS = [
-    "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity&filter=Amazon",
-    "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity",
-    "https://www.dealnews.com/rss/dln/rss.html",
     "https://www.techbargains.com/rss.xml",
-    "https://www.walmart.com/cp/rss/1085666",
-    "https://www.bestbuy.com/site/electronics/top-deals/pcmcat1563300794084.c?id=pcmcat1563300794084&rss=true",
-    "https://www.hotukdeals.com/tag/amazon.rss",
+    "https://www.dealnews.com/rss/dln/rss.html",
+    "https://www.slickdeals.net/newsearch.php?searchin=first&rss=1&sort=latest",
     "https://www.hotukdeals.com/rss",
-    "https://www.dealabs.com/groupe/amazon.rss",
     "https://www.dealabs.com/rss",
-    "https://www.mydealz.de/groupe/amazon.rss",
     "https://www.mydealz.de/rss",
-    "https://www.aliexpress.com/rss/new-arrivals.xml",
+    "https://9to5toys.com/feed/",
+    "https://www.kotaku.com.au/rss",
+    "https://www.polygon.com/rss/index.xml",
+    "https://www.bountii.com/rss",
 ]
 
 KEYWORDS = []  # Фильтрация отключена

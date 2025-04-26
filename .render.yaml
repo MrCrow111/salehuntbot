@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: salehunt-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 8080

@@ -8,13 +8,13 @@ from threading import Thread
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "твой токен сюда"
 CHANNEL_ID = -1002650552114
+ADMIN_ID = 7039411923  # <-- твой Telegram ID для уведомлений об ошибках
 
 RSS_FEEDS = [
     "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity&filter=Amazon",
     "https://www.hotukdeals.com/tag/amazon.rss",
     "https://www.dealabs.com/groupe/amazon.rss",
     "https://www.mydealz.de/groupe/amazon.rss",
-    # Можно добавить еще фиды
 ]
 
 # Ключевые слова для фильтрации (если пусто, постит всё)
@@ -24,10 +24,17 @@ bot = Bot(token=BOT_TOKEN)
 posted_links = set()
 LOG_FILE = "bot_log.txt"
 
-# === Функция логирования ===
+# === Функция логирования в файл ===
 def log_message(message: str):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+# === Функция отправки уведомления админу ===
+async def notify_admin(error_text: str):
+    try:
+        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка у бота:\n\n{error_text}")
+    except Exception as notify_error:
+        log_message(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
 
 # === Мини-сервер Flask для Render/хостинга ===
 app = Flask('')
@@ -49,6 +56,7 @@ async def fetch_and_post_deals():
         await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
         log_message("✅ Бот стартовал и отправил тестовое сообщение.")
     except Exception as test_error:
+        await notify_admin(str(test_error))
         log_message(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
 
     first_run = True
@@ -93,10 +101,10 @@ async def fetch_and_post_deals():
                             print(f"✅ Опубликовано: {title}")
                             log_message(f"✅ Опубликовано: {title}")
                         except Exception as send_error:
-                            print(f"❌ Ошибка отправки сообщения: {send_error}")
+                            await notify_admin(str(send_error))
                             log_message(f"❌ Ошибка отправки сообщения: {send_error}")
             except Exception as feed_error:
-                print(f"❌ Ошибка загрузки фида: {feed_error}")
+                await notify_admin(str(feed_error))
                 log_message(f"❌ Ошибка загрузки фида: {feed_error}")
 
         first_run = False
@@ -109,6 +117,7 @@ async def main():
         try:
             await fetch_and_post_deals()
         except Exception as e:
+            await notify_admin(str(e))
             log_message(f"💥 Бот упал с ошибкой: {e}")
             await asyncio.sleep(10)
 

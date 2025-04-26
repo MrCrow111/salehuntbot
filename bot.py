@@ -2,13 +2,13 @@ import feedparser
 import asyncio
 from telegram import Bot
 from datetime import datetime
-import os
+from flask import Flask
+from threading import Thread
 
-# Получаем данные из переменных окружения
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+# === НАСТРОЙКИ ===
+BOT_TOKEN = "7758500745:AAGF3Vr0GLbQgk_XudSHGxZVbC33Spwtm3o"
+CHANNEL_ID = -1002650552114
 
-# Ссылки на фиды скидок
 RSS_FEEDS = [
     "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity&filter=Amazon",
     "https://www.hotukdeals.com/tag/amazon.rss"
@@ -18,10 +18,26 @@ bot = Bot(token=BOT_TOKEN)
 posted_links = set()
 LOG_FILE = "bot_log.txt"
 
+# === Функция логирования ===
 def log_message(message: str):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
+# === Мини-сервер Flask для Render ===
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "✅ SaleHunt Bot работает!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# === Основная логика бота ===
 async def fetch_and_post_deals():
     # Тестовое сообщение при запуске
     try:
@@ -58,8 +74,9 @@ async def fetch_and_post_deals():
 
         await asyncio.sleep(30 * 60)
 
-# Важно! Здесь правильный синтаксис
-if"__name__"== "__main__":
+# === Старт бота ===
+if __name__ == "__main__":
+    keep_alive()  # Запускаем мини-сервер Flask
     print("🚀 Бот запущен и следит за скидками!")
     log_message("🚀 Бот запущен.")
     asyncio.run(fetch_and_post_deals())

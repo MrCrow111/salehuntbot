@@ -8,35 +8,22 @@ from threading import Thread
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "7758500745:AAGF3Vr0GLbQgk_XudSHGxZVbC33Spwtm3o"
 CHANNEL_ID = -1002650552114
-ADMIN_ID = 7039411923
 
+# === Новый список проверенных RSS-фидов ===
 RSS_FEEDS = [
-    "https://www.techbargains.com/rss.xml",
-    "https://www.dealnews.com/rss/dln/rss.html",
-    "https://www.slickdeals.net/newsearch.php?searchin=first&rss=1&sort=latest",
-    "https://www.hotukdeals.com/rss",
-    "https://www.dealabs.com/rss",
-    "https://www.mydealz.de/rss",
     "https://9to5toys.com/feed/",
-    "https://www.kotaku.com.au/rss",
-    "https://www.polygon.com/rss/index.xml",
-    "https://www.bountii.com/rss",
+    "https://www.theverge.com/rss/index.xml",
+    "https://www.engadget.com/rss.xml",
+    "https://www.gizmodo.com.au/rss",
+    "https://www.wired.com/feed/rss",
+    "https://www.cnet.com/rss/news/",
+    "https://www.techbargains.com/rss.xml",
+    "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=latest&forumid[]=9",
 ]
-
-KEYWORDS = []  # Фильтрация отключена
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
 LOG_FILE = "bot_log.txt"
-
-# === Логирование ===
-def log_message(message: str):
-    print(message)
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
-    except Exception as e:
-        print(f"❌ Ошибка записи в лог: {e}")
 
 # === Мини-сервер Flask ===
 app = Flask('')
@@ -48,18 +35,25 @@ def home():
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
+# === Логирование ===
+def log_message(message: str):
+    print(message)
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+    except Exception as e:
+        print(f"❌ Ошибка записи в лог: {e}")
+
 # === Основная логика проверки скидок ===
 async def fetch_and_post_deals():
     print("🔵 Старт функции fetch_and_post_deals()")
 
     try:
-        await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и сразу проверяет скидки!")
-        log_message("✅ Бот стартовал и сразу проверяет скидки.")
+        await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и сразу публикует скидки!")
+        log_message("✅ Бот стартовал и сразу публикует скидки.")
     except Exception as e:
         log_message(f"❌ Ошибка при отправке стартового сообщения: {e}")
         print(f"❌ Ошибка при отправке стартового сообщения: {e}")
-
-    first_run = True
 
     while True:
         print("🔄 Началась новая проверка скидок...")
@@ -87,19 +81,11 @@ async def fetch_and_post_deals():
                         elif isinstance(media, dict):
                             image_url = media.get('url', '')
 
-                    if first_run:
-                        posted_links.add(link)
-                        continue
-
                     if link not in posted_links:
-                        if KEYWORDS:
-                            if not any(keyword.lower() in title.lower() for keyword in KEYWORDS):
-                                continue
-
                         posted_links.add(link)
 
                         message_text = f"🔥 {title}"
-                        button = InlineKeyboardButton("👉 Перейти на сайт", url=link)
+                        button = InlineKeyboardButton("👉 Посмотреть", url=link)
                         markup = InlineKeyboardMarkup([[button]])
 
                         try:
@@ -128,9 +114,8 @@ async def fetch_and_post_deals():
             except Exception as feed_error:
                 log_message(f"❌ Ошибка загрузки фида: {feed_url} — {feed_error}")
 
-        first_run = False
         print("🟢 Проверка всех фидов завершена. Следующая через 1 минуту...")
-        await asyncio.sleep(60)  # Спим 60 секунд между проверками
+        await asyncio.sleep(60)
 
 # === Асинхронный запуск бота ===
 async def main():

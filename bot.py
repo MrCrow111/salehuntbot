@@ -1,7 +1,6 @@
 import feedparser
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime
 from flask import Flask
 from threading import Thread
@@ -29,32 +28,40 @@ RSS_FEEDS = [
 
 KEYWORDS = []  # Фильтрация отключена
 
+bot = Bot(token=BOT_TOKEN)
 posted_links = set()
+LOG_FILE = "bot_log.txt"
 
-# === Flask-сервер для Render ===
+# === Логирование ===
+def log_message(message: str):
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+# === Мини-сервер Flask для Render ===
 app = Flask('')
 
 @app.route('/')
 def home():
     return "✅ SaleHunt Bot работает!"
 
-def run_flask():
+def run():
     app.run(host='0.0.0.0', port=8080)
 
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 # === Основная логика бота ===
-async def fetch_and_post_deals(app):
+async def fetch_and_post_deals():
     print("🔵 Старт функции fetch_and_post_deals()")
 
-    # Пытаемся отправить стартовое сообщение
     try:
-        await app.bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
-        print("✅ Стартовое сообщение отправлено.")
-    except Exception as e:
-        print(f"❌ Ошибка отправки стартового сообщения: {e}")
-        try:
-            await app.bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка старта:\n\n{e}")
-        except Exception as notify_error:
-            print(f"❌ Ошибка при уведомлении админу: {notify_error}")
+        await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
+        print("✅ Тестовое сообщение успешно отправлено в канал.")
+        log_message("✅ Бот стартовал и отправил тестовое сообщение.")
+    except Exception as test_error:
+        print(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
+        log_message(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
 
     first_run = True
 
@@ -98,7 +105,7 @@ async def fetch_and_post_deals(app):
 
                         try:
                             if image_url:
-                                await app.bot.send_photo(
+                                await bot.send_photo(
                                     chat_id=CHANNEL_ID,
                                     photo=image_url,
                                     caption=message_text,
@@ -106,7 +113,7 @@ async def fetch_and_post_deals(app):
                                     parse_mode='Markdown'
                                 )
                             else:
-                                await app.bot.send_message(
+                                await bot.send_message(
                                     chat_id=CHANNEL_ID,
                                     text=message_text,
                                     reply_markup=markup,
@@ -115,42 +122,23 @@ async def fetch_and_post_deals(app):
                                 )
 
                             print(f"✅ Опубликована скидка: {title}")
+                            log_message(f"✅ Опубликована скидка: {title}")
 
                         except Exception as send_error:
                             print(f"❌ Ошибка отправки сообщения: {send_error}")
-                            try:
-                                await app.bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка отправки:\n\n{send_error}")
-                            except Exception as notify_error:
-                                print(f"❌ Ошибка при уведомлении админу: {notify_error}")
+                            log_message(f"❌ Ошибка отправки сообщения: {send_error}")
 
             except Exception as feed_error:
                 print(f"❌ Ошибка загрузки фида {feed_url}: {feed_error}")
-                try:
-                    await app.bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка загрузки фида:\n\n{feed_error}")
-                except Exception as notify_error:
-                    print(f"❌ Ошибка при уведомлении админу: {notify_error}")
+                log_message(f"❌ Ошибка загрузки фида: {feed_url}: {feed_error}")
 
         first_run = False
         print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")
         await asyncio.sleep(60)
 
-# === Старт бота и сервера ===
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    asyncio.create_task(fetch_and_post_deals(app))
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    await app.idle()
-
-def start_bot():
-    asyncio.run(main())
-
+# === Старт бота ===
 if __name__ == "__main__":
-    print("🚀 Бот запускается...")
-
-    flask_thread = Thread(target=run_flask)
-    flask_thread.start()
-
-    bot_thread = Thread(target=start_bot)
-    bot_thread.start()
+    keep_alive()
+    print("🚀 Бот запущен и следит за скидками!")
+    log_message("🚀 Бот запущен.")
+    asyncio.run(fetch_and_post_deals())

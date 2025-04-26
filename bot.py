@@ -26,8 +26,8 @@ RSS_FEEDS = [
     "https://www.aliexpress.com/rss/new-arrivals.xml",
 ]
 
-# ⚡ Фильтрация отключена — постится всё
-KEYWORDS = []  
+# Фильтрация отключена — постится всё
+KEYWORDS = []
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
@@ -38,26 +38,22 @@ def log_message(message: str):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
-# === Отправка уведомлений админу ===
+# === Уведомление админу об ошибках ===
 async def notify_admin(error_text: str):
     try:
         await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Ошибка у бота:\n\n{error_text}")
     except Exception as notify_error:
         log_message(f"❌ Ошибка при отправке уведомления админу: {notify_error}")
 
-# === Мини-сервер Flask для Render ===
+# === Flask-сервер для Render ===
 app = Flask('')
 
 @app.route('/')
 def home():
     return "✅ SaleHunt Bot работает!"
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
 
 # === Основная логика бота ===
 async def fetch_and_post_deals():
@@ -83,6 +79,7 @@ async def fetch_and_post_deals():
                     title = entry.title
                     image_url = ""
 
+                    # Попытка достать картинку
                     if 'media_content' in entry:
                         media = entry.media_content
                         if isinstance(media, list) and media:
@@ -95,7 +92,7 @@ async def fetch_and_post_deals():
                         continue
 
                     if link not in posted_links:
-                        # Если KEYWORDS пустой — постим всё
+                        # Если фильтрация включена
                         if KEYWORDS:
                             if not any(keyword.lower() in title.lower() for keyword in KEYWORDS):
                                 continue
@@ -123,35 +120,32 @@ async def fetch_and_post_deals():
                                     parse_mode='Markdown',
                                     disable_web_page_preview=False
                                 )
-
                             print(f"✅ Опубликовано: {title}")
                             log_message(f"✅ Опубликовано: {title}")
 
                         except Exception as send_error:
                             await notify_admin(str(send_error))
                             log_message(f"❌ Ошибка отправки сообщения: {send_error}")
-
             except Exception as feed_error:
                 await notify_admin(str(feed_error))
                 log_message(f"❌ Ошибка загрузки фида: {feed_error}")
 
         first_run = False
-        log_message(f"🔄 Проверка фидов завершена. Сплю 1 минуту...")
-        await asyncio.sleep(60)  # Спим 1 минуту после каждой проверки
+        log_message("🔄 Проверка фидов завершена. Сплю 1 минуту...")
+        await asyncio.sleep(60)
 
-# === Автоматический перезапуск при ошибках ===
-async def main():
-    while True:
-        try:
-            await fetch_and_post_deals()
-        except Exception as e:
-            await notify_admin(str(e))
-            log_message(f"💥 Бот упал с ошибкой: {e}")
-            await asyncio.sleep(10)
+# === Старт бота и сервера ===
+def start_bot():
+    asyncio.run(fetch_and_post_deals())
 
-# === Старт бота ===
 if __name__ == "__main__":
-    keep_alive()
     print("🚀 Бот запущен и следит за скидками!")
     log_message("🚀 Бот запущен.")
-    asyncio.run(main())
+    
+    # Стартуем Flask-сервер
+    flask_thread = Thread(target=run_flask)
+    flask_thread.start()
+    
+    # Стартуем бота
+    bot_thread = Thread(target=start_bot)
+    bot_thread.start()

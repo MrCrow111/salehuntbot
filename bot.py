@@ -29,33 +29,36 @@ bot = Bot(token=BOT_TOKEN)
 posted_links = set()
 LOG_FILE = "bot_log.txt"
 
+# === Логирование ===
 def log_message(message: str):
-    print(message)
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
-    except Exception as e:
-        print(f"❌ Ошибка записи в лог: {e}")
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
-# === Мини-сервер Flask ===
+# === Мини-сервер Flask для Render ===
 app = Flask('')
 
 @app.route('/')
 def home():
     return "✅ SaleHunt Bot работает!"
 
-def run_flask():
+def run():
     app.run(host='0.0.0.0', port=8080)
 
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# === Основная логика бота ===
 async def fetch_and_post_deals():
     print("🔵 Старт функции fetch_and_post_deals()")
 
     try:
         await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
+        print("✅ Тестовое сообщение успешно отправлено в канал.")
         log_message("✅ Бот стартовал и отправил тестовое сообщение.")
-    except Exception as e:
-        log_message(f"❌ Ошибка при отправке стартового сообщения: {e}")
-        print(f"❌ Ошибка при отправке стартового сообщения: {e}")
+    except Exception as test_error:
+        print(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
+        log_message(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
 
     first_run = True
 
@@ -64,12 +67,14 @@ async def fetch_and_post_deals():
         for feed_url in RSS_FEEDS:
             try:
                 print(f"📥 Проверяю фид: {feed_url}")
+                # --- Добавляем правильный user-agent ---
                 feed = feedparser.parse(feed_url, request_headers={'User-Agent': 'Mozilla/5.0 (compatible; SaleHuntBot/1.0)'})
 
                 if feed.bozo:
                     raise Exception(feed.bozo_exception)
 
                 if not feed.entries:
+                    print(f"⚠️ Фид пустой: {feed_url}")
                     log_message(f"⚠️ Фид пустой: {feed_url}")
                     continue
 
@@ -78,6 +83,7 @@ async def fetch_and_post_deals():
                     title = entry.title
                     image_url = ""
 
+                    # Достаём картинку если есть
                     if 'media_content' in entry:
                         media = entry.media_content
                         if isinstance(media, list) and media:
@@ -118,31 +124,24 @@ async def fetch_and_post_deals():
                                     disable_web_page_preview=False
                                 )
 
+                            print(f"✅ Опубликована скидка: {title}")
                             log_message(f"✅ Опубликована скидка: {title}")
 
                         except Exception as send_error:
+                            print(f"❌ Ошибка отправки сообщения: {send_error}")
                             log_message(f"❌ Ошибка отправки сообщения: {send_error}")
 
             except Exception as feed_error:
+                print(f"❌ Ошибка загрузки фида: {feed_url} — {feed_error}")
                 log_message(f"❌ Ошибка загрузки фида: {feed_url} — {feed_error}")
 
         first_run = False
         print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")
         await asyncio.sleep(60)
 
-# === Асинхронный запуск бота ===
-async def main():
-    await fetch_and_post_deals()
-
-def start_asyncio_loop():
-    asyncio.run(main())
-
-# === Старт программы ===
+# === Старт бота ===
 if __name__ == "__main__":
-    print("🚀 Бот запускается...")
-    
-    flask_thread = Thread(target=run_flask)
-    flask_thread.start()
-
-    bot_thread = Thread(target=start_asyncio_loop)
-    bot_thread.start()
+    keep_alive()
+    print("🚀 Бот запущен и следит за скидками!")
+    log_message("🚀 Бот запущен.")
+    asyncio.run(fetch_and_post_deals())

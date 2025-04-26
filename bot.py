@@ -138,6 +138,7 @@ async def fetch_and_post_deals(app):
 async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     asyncio.create_task(fetch_and_post_deals(app))
+    await app.initialize()
     await app.start()
     await app.updater.start_polling()
     await app.idle()

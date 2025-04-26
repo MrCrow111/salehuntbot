@@ -23,22 +23,21 @@ RSS_FEEDS = [
     "https://www.bountii.com/rss",
 ]
 
-KEYWORDS = []  # Фильтрация отключена
+KEYWORDS = []
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
 LOG_FILE = "bot_log.txt"
 
-# === Логирование ===
 def log_message(message: str):
-    print(message)  # Всё видно в Render Logs
+    print(message)
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
     except Exception as e:
         print(f"❌ Ошибка записи в лог: {e}")
 
-# === Мини-сервер Flask для Render ===
+# === Мини-сервер Flask ===
 app = Flask('')
 
 @app.route('/')
@@ -54,8 +53,10 @@ async def fetch_and_post_deals():
     try:
         await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
         log_message("✅ Бот стартовал и отправил тестовое сообщение.")
-    except Exception as test_error:
-        log_message(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
+    except Exception as e:
+        log_message(f"❌ Ошибка при отправке стартового сообщения: {e}")
+        print(f"❌ Ошибка при отправке стартового сообщения: {e}")
+        return  # Если ошибка при старте — не продолжаем
 
     first_run = True
 
@@ -141,10 +142,8 @@ def start_asyncio_loop():
 if __name__ == "__main__":
     print("🚀 Бот запускается...")
     
-    # Запускаем Flask-сервер
     flask_thread = Thread(target=run_flask)
     flask_thread.start()
 
-    # Запускаем бота
     bot_thread = Thread(target=start_asyncio_loop)
     bot_thread.start()

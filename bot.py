@@ -70,9 +70,15 @@ async def fetch_and_post_deals():
         for feed_url in RSS_FEEDS:
             try:
                 print(f"📥 Проверяю фид: {feed_url}")
-                feed = feedparser.parse(feed_url)
+                # --- Добавляем правильный user-agent ---
+                feed = feedparser.parse(feed_url, request_headers={'User-Agent': 'Mozilla/5.0 (compatible; SaleHuntBot/1.0)'})
+
+                if feed.bozo:
+                    raise Exception(feed.bozo_exception)
+
                 if not feed.entries:
                     print(f"⚠️ Фид пустой: {feed_url}")
+                    log_message(f"⚠️ Фид пустой: {feed_url}")
                     continue
 
                 for entry in feed.entries:
@@ -129,8 +135,8 @@ async def fetch_and_post_deals():
                             log_message(f"❌ Ошибка отправки сообщения: {send_error}")
 
             except Exception as feed_error:
-                print(f"❌ Ошибка загрузки фида {feed_url}: {feed_error}")
-                log_message(f"❌ Ошибка загрузки фида: {feed_url}: {feed_error}")
+                print(f"❌ Ошибка загрузки фида: {feed_url} — {feed_error}")
+                log_message(f"❌ Ошибка загрузки фида: {feed_url} — {feed_error}")
 
         first_run = False
         print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")

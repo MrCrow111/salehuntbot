@@ -1,86 +1,90 @@
 import feedparser
-import asyncio
+import time
+import threading
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
-from datetime import datetime
 from flask import Flask
-from threading import Thread
 
-# === НАСТРОЙКИ ===
+# === SETTINGS ===
 BOT_TOKEN = "7758500745:AAGF3Vr0GLbQgk_XudSHGxZVbC33Spwtm3o"
 CHANNEL_ID = -1002650552114
-ADMIN_ID = 7039411923
 
 RSS_FEEDS = [
-    "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity&filter=Amazon",
-    "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=popularity",
-    "https://www.dealnews.com/rss/dln/rss.html",
+    "https://9to5toys.com/feed/",
+    "https://www.theverge.com/rss/index.xml",
+    "https://www.engadget.com/rss.xml",
+    "https://www.wired.com/feed/rss",
+    "https://www.cnet.com/rss/news/",
     "https://www.techbargains.com/rss.xml",
-    "https://www.walmart.com/cp/rss/1085666",
-    "https://www.bestbuy.com/site/electronics/top-deals/pcmcat1563300794084.c?id=pcmcat1563300794084&rss=true",
-    "https://www.hotukdeals.com/tag/amazon.rss",
-    "https://www.hotukdeals.com/rss",
-    "https://www.dealabs.com/groupe/amazon.rss",
-    "https://www.dealabs.com/rss",
-    "https://www.mydealz.de/groupe/amazon.rss",
-    "https://www.mydealz.de/rss",
-    "https://www.aliexpress.com/rss/new-arrivals.xml",
+    "https://slickdeals.net/newsearch.php?searchin=first&rss=1&sort=latest&forumid[]=9",
 ]
 
-KEYWORDS = []  # Фильтрация отключена
+# Default SaleHunt Image
+DEFAULT_IMAGE = "https://sdmntpritalynorth.oaiusercontent.com/files/00000000-1880-6246-a358-63d72dce9191/raw?se=2025-04-26T20%3A30%3A46Z&sp=r&sv=2024-08-04&sr=b&scid=0216e62e-be76-57bc-8714-2cf7c2291b14&skoid=cbbaa726-4a2e-4147-932c-56e6e553f073&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-04-26T16%3A47%3A43Z&ske=2025-04-27T16%3A47%3A43Z&sks=b&skv=2024-08-04&sig=RIAq69ozifY67Y%2BnMzjFebXmetR//lHWZ1pBsuCFzXg%3D"
 
 bot = Bot(token=BOT_TOKEN)
 posted_links = set()
-LOG_FILE = "bot_log.txt"
 
-# === Логирование ===
-def log_message(message: str):
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
-
-# === Мини-сервер Flask для Render ===
-app = Flask('')
+# === Flask Mini Server ===
+app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "✅ SaleHunt Bot работает!"
+    return "✅ SaleHunt Bot is running!"
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# === Основная логика бота ===
-async def fetch_and_post_deals():
-    print("🔵 Старт функции fetch_and_post_deals()")
-
+# === Function to Send Beautiful Post ===
+def send_message(title, url, image_url=None):
     try:
-        await bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot успешно запущен и следит за скидками!")
-        print("✅ Тестовое сообщение успешно отправлено в канал.")
-        log_message("✅ Бот стартовал и отправил тестовое сообщение.")
-    except Exception as test_error:
-        print(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
-        log_message(f"❌ Ошибка при отправке тестового сообщения: {test_error}")
+        if not image_url:
+            image_url = DEFAULT_IMAGE
 
-    first_run = True
+        button = InlineKeyboardButton("👉 Check Deal", url=url)
+        markup = InlineKeyboardMarkup([[button]])
+
+        caption = (
+            f"🔥 **NEW DEAL!**\n\n"
+            f"🛍️ *{title}*\n\n"
+            f"📎 Tap the button below to see more details!"
+        )
+
+        bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=image_url,
+            caption=caption,
+            reply_markup=markup,
+            parse_mode='Markdown'
+        )
+
+        print(f"✅ Posted: {title}")
+    except Exception as e:
+        print(f"❌ Error sending message: {e}")
+
+# === Main Deals Fetching Logic ===
+def fetch_and_post_deals():
+    try:
+        bot.send_message(chat_id=CHANNEL_ID, text="✅ SaleHunt Bot has started and is watching for hot deals!", parse_mode='Markdown')
+        print("✅ Startup message sent.")
+    except Exception as e:
+        print(f"❌ Error sending startup message: {e}")
 
     while True:
-        print("🔄 Началась новая проверка скидок...")
+        print("🔄 New round of deal checking started...")
         for feed_url in RSS_FEEDS:
             try:
-                print(f"📥 Проверяю фид: {feed_url}")
+                print(f"📥 Checking feed: {feed_url}")
                 feed = feedparser.parse(feed_url)
+
                 if not feed.entries:
-                    print(f"⚠️ Фид пустой: {feed_url}")
+                    print(f"⚠️ Feed is empty: {feed_url}")
                     continue
 
                 for entry in feed.entries:
                     link = entry.link
                     title = entry.title
-                    image_url = ""
+                    image_url = None
 
-                    # Достаём картинку если есть
                     if 'media_content' in entry:
                         media = entry.media_content
                         if isinstance(media, list) and media:
@@ -88,57 +92,25 @@ async def fetch_and_post_deals():
                         elif isinstance(media, dict):
                             image_url = media.get('url', '')
 
-                    if first_run:
-                        posted_links.add(link)
-                        continue
-
                     if link not in posted_links:
-                        if KEYWORDS:
-                            if not any(keyword.lower() in title.lower() for keyword in KEYWORDS):
-                                continue
-
                         posted_links.add(link)
 
-                        message_text = f"🔥 {title}"
-                        button = InlineKeyboardButton("👉 Перейти на сайт", url=link)
-                        markup = InlineKeyboardMarkup([[button]])
+                        send_message(title=title, url=link, image_url=image_url)
 
-                        try:
-                            if image_url:
-                                await bot.send_photo(
-                                    chat_id=CHANNEL_ID,
-                                    photo=image_url,
-                                    caption=message_text,
-                                    reply_markup=markup,
-                                    parse_mode='Markdown'
-                                )
-                            else:
-                                await bot.send_message(
-                                    chat_id=CHANNEL_ID,
-                                    text=message_text,
-                                    reply_markup=markup,
-                                    parse_mode='Markdown',
-                                    disable_web_page_preview=False
-                                )
-
-                            print(f"✅ Опубликована скидка: {title}")
-                            log_message(f"✅ Опубликована скидка: {title}")
-
-                        except Exception as send_error:
-                            print(f"❌ Ошибка отправки сообщения: {send_error}")
-                            log_message(f"❌ Ошибка отправки сообщения: {send_error}")
+                        time.sleep(300)  # ⏳ Pause 5 minutes between posts
 
             except Exception as feed_error:
-                print(f"❌ Ошибка загрузки фида {feed_url}: {feed_error}")
-                log_message(f"❌ Ошибка загрузки фида: {feed_url}: {feed_error}")
+                print(f"❌ Error processing feed {feed_url}: {feed_error}")
 
-        first_run = False
-        print("🟢 Проверка всех фидов завершена. Сплю 1 минуту...")
-        await asyncio.sleep(60)
+        print("🟢 Deal checking finished. Sleeping for 1 minute...")
+        time.sleep(60)
 
-# === Старт бота ===
+# === Bot Startup ===
 if __name__ == "__main__":
-    keep_alive()
-    print("🚀 Бот запущен и следит за скидками!")
-    log_message("🚀 Бот запущен.")
-    asyncio.run(fetch_and_post_deals())
+    print("🚀 Bot is starting...")
+
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
+
+    bot_thread = threading.Thread(target=fetch_and_post_deals)
+    bot_thread.start()
